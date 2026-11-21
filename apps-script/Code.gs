@@ -14,7 +14,7 @@
 
 const DOC_SHEET = 'docs';
 const ASSET_SHEET = 'assets';
-const CHUNK = 45000;          // a Sheets cell holds at most 50,000 characters
+const CHUNK = 45000;          // a Sheets cell holds at most 50,000 characters (one more for the '~' guard)
 const MAX_CHUNKS = 6;         // so one document can be up to ~270 KB of JSON
 const TOKEN_HOURS = 12;
 
@@ -22,7 +22,12 @@ const TOKEN_HOURS = 12;
    view / interact = anyone using the website, admin = signed-in staff,
    {self} = the visitor's own document (its id equals the visitor id). */
 const RULES = [
-  ['',                'view',     'admin'],
+  ['',                'admin',    'admin'],     // everything is staff-only unless listed below
+  ['config',          'view',     'admin'],
+  ['holidays',        'view',     'admin'],
+  ['hwlib',           'view',     'admin'],
+  ['library',         'view',     'admin'],
+  ['fam',             'view',     'admin'],     // encrypted family bundles; single reads only, never listed (see listCol_)
   ['taken',           'view',     'interact'],
   ['acks',            'view',     'interact'],
   ['feedback',        'admin',    'admin'],
@@ -37,7 +42,7 @@ const RULES = [
 ];
 
 /* ---------------- entry points ---------------- */
-function doGet(e) { return respond_(e && e.parameter ? e.parameter : {}); }
+function doGet(e) { return respond_({ a: 'ping' }); }
 function doPost(e) {
   let p = {};
   try { p = JSON.parse((e && e.postData && e.postData.contents) || '{}'); } catch (err) { p = {}; }
@@ -65,7 +70,7 @@ function route_(p) {
     case 'delete': return write_(ctx, [{ op: 'delete', path: p.path }]);
     case 'batch':  return write_(ctx, p.writes || []);
     case 'acquire':return acquire_(ctx, p.path, p.holder, p.ttl);
-    case 'assets': return { assets: assetList_() };
+    case 'assets': if (!ctx.staff) fail_('permission', 'staff only'); return { assets: assetList_() };
     case 'file':   return file_(p.id);
     case 'upload': return upload_(ctx, p);
     case 'deleteAsset': return deleteAsset_(ctx, p.id);
@@ -151,7 +156,7 @@ function loadAll_() {
   vals.forEach((row, i) => {
     if (!row[0]) return;
     let data = null;
-    try { data = JSON.parse(row.slice(3).join('')); } catch (e) { data = null; }
+    try { data = JSON.parse(row.slice(3).map(c => String(c).replace(/^~/, '')).join('')); } catch (e) { data = null; }
     map[row[0]] = { row: i + 2, version: Number(row[1]) || 1, data: data };
   });
   return { sh: sh, map: map };
@@ -160,7 +165,7 @@ function toRow_(path, version, data) {
   const json = JSON.stringify(data);
   if (json.length > CHUNK * MAX_CHUNKS) fail_('too_large', 'ข้อมูลเอกสารนี้ใหญ่เกินไป');
   const parts = [];
-  for (let i = 0; i < MAX_CHUNKS; i++) parts.push(json.slice(i * CHUNK, (i + 1) * CHUNK));
+  for (let i = 0; i < MAX_CHUNKS; i++) { const c = json.slice(i * CHUNK, (i + 1) * CHUNK); parts.push(c ? '~' + c : ''); }
   return [path, version, new Date()].concat(parts);
 }
 function rev_() { return Number(props_().getProperty('REV') || 0); }
@@ -169,11 +174,15 @@ function bump_() { const r = rev_() + 1; props_().setProperty('REV', String(r));
 function readDoc_(ctx, path) {
   path = validDocPath_(path);
   if (!allowed_(ctx, path, 1)) return null;           // hidden reads look like missing documents
+  if (!ctx.staff && segs_(path)[0] === 'fam') famGuard_();
   const d = loadAll_().map[path];
+  if (!d && !ctx.staff && segs_(path)[0] === 'fam') famMiss_();
   return d ? { id: segs_(path).pop(), data: d.data, version: d.version } : null;
 }
+const NO_PUBLIC_LIST = ['fam'];
 function listCol_(ctx, col, all) {
   const cs = segs_(col);
+  if (!ctx.staff && NO_PUBLIC_LIST.indexOf(cs[0]) >= 0) fail_('permission', 'staff only');
   if (!cs.length || cs.length % 2 === 0) fail_('bad_request', 'bad collection path');
   all = all || loadAll_().map;
   const out = [];
@@ -188,11 +197,13 @@ function listCol_(ctx, col, all) {
 }
 function many_(ctx, reqs) {
   const all = loadAll_().map;
-  const res = reqs.slice(0, 80).map(q => {
+  const res = reqs.slice(0, ctx.staff ? 80 : 30).map(q => {
     try {
       if (q.t === 'doc') {
         const path = validDocPath_(q.path);
-        if (!allowed_(ctx, path, 1) || !all[path]) return { doc: null };
+        const famRead = !ctx.staff && segs_(path)[0] === 'fam';
+        if (famRead) famGuard_();
+        if (!allowed_(ctx, path, 1) || !all[path]) { if (famRead) famMiss_(); return { doc: null }; }
         return { doc: { id: segs_(path).pop(), data: all[path].data, version: all[path].version } };
       }
       return { docs: listCol_(ctx, q.path, all) };
@@ -200,6 +211,44 @@ function many_(ctx, reqs) {
   });
   return { rev: rev_(), res: res };
 }
+/* Every failed phone+code lookup is counted; too many in 10 minutes pauses lookups for everyone. */
+function famGuard_() { if (Number(CacheService.getScriptCache().get('fam_miss') || 0) >= 150) fail_('rate_limited', 'มีการค้นหาผิดจำนวนมาก กรุณาลองใหม่ใน 10 นาที'); }
+function famMiss_() { const c = CacheService.getScriptCache(); c.put('fam_miss', String(Number(c.get('fam_miss') || 0) + 1), 600); }
+
+/* ---------------- what visitors may write ---------------- */
+const PUBLIC_MAX = 60000;     // bytes of JSON per document written by a visitor
+function hashOwner_(uid) { return 'h' + Utilities.base64EncodeWebSafe(Utilities.computeHmacSha256Signature('owner:' + uid, secret_())).slice(0, 22); }
+function clean_(v, depth) {   // strip markup characters and cap sizes in visitor-written data
+  if (depth > 8) return null;
+  if (typeof v === 'string') return v.replace(/[<>]/g, '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').slice(0, 3000);
+  if (typeof v === 'number' || typeof v === 'boolean' || v === null) return v;
+  if (Array.isArray(v)) return v.slice(0, 50).map(x => clean_(x, depth + 1));
+  if (typeof v === 'object') { const o = {}; Object.keys(v).slice(0, 200).forEach(k => { o[String(k).replace(/[<>]/g, '').slice(0, 80)] = clean_(v[k], depth + 1); }); return o; }
+  return null;
+}
+function visitorWrite_(ctx, w, cur) {
+  const col = segs_(w.path)[0];
+  if (w.data) w.data = clean_(w.data, 0);
+  if (w.data && JSON.stringify(w.data).length > PUBLIC_MAX) fail_('too_large', 'ข้อมูลยาวเกินไป');
+  if (col === 'taken') {
+    // a seat names its booking only; the visitor id is stored as a one-way hash so it cannot be read back
+    const mine = hashOwner_(ctx.uid || 'anon');
+    if (cur && cur.data && cur.data.bid && cur.data.owner !== mine) fail_('permission', 'ที่นั่งนี้ถูกจองแล้ว');
+    if (w.op === 'delete') return;
+    const d = w.data || {};
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d.date || '') || !/^\d{4}$/.test(d.slot || '') || !/^[A-Za-z0-9]{4,40}$/.test(d.bid || '')) fail_('bad_request', 'ข้อมูลที่นั่งไม่ถูกต้อง');
+    w.data = { date: d.date, slot: d.slot, bid: d.bid, owner: mine };
+  } else if (col === 'acks') {
+    if (w.op === 'delete') fail_('permission', 'ไม่มีสิทธิ์');
+    const d = w.data || {};
+    if (!/^[A-Za-z0-9]{4,40}$/.test(d.bid || '')) fail_('bad_request', 'ข้อมูลไม่ถูกต้อง');
+    w.data = { bid: d.bid, at: String(d.at || '').slice(0, 40) };
+  }
+}
+function staffWrite_(w) {
+  if (segs_(w.path)[0] === 'taken' && w.data && w.data.owner && w.data.owner.charAt(0) !== 'h') w.data.owner = hashOwner_(String(w.data.owner));
+}
+
 function merge_(base, patch) {
   if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return patch;
   const out = (base && typeof base === 'object' && !Array.isArray(base)) ? Object.assign({}, base) : {};
@@ -221,7 +270,9 @@ function write_(ctx, writes) {
       if (!allowed_(ctx, path, 2)) fail_('permission', 'ไม่มีสิทธิ์แก้ไขข้อมูลนี้');
       if ((w.op === 'set' || w.op === 'update') && (!w.data || typeof w.data !== 'object' || Array.isArray(w.data))) fail_('bad_request', 'data must be an object');
       if (w.op === 'update' && !map[path]) fail_('invalid_argument', 'document does not exist');
-      return { op: w.op, path: path, data: w.data };
+      const item = { op: w.op, path: path, data: w.data };
+      if (ctx.staff) staffWrite_(item); else visitorWrite_(ctx, item, map[path]);
+      return item;
     });
     plan.forEach(w => {
       const cur = map[w.path];
@@ -267,7 +318,7 @@ function assetRows_() {
   const sh = assetSheet_(), n = sh.getLastRow();
   return n < 2 ? [] : sh.getRange(2, 1, n - 1, 6).getValues().filter(r => r[0]);
 }
-function assetList_() { return assetRows_().map(r => ({ id: r[0], type: r[2], name: r[3], size: r[4] })); }
+function assetList_() { return assetRows_().map(r => ({ id: r[0], type: r[2], name: String(r[3]).replace(/^~/, ''), size: r[4] })); }
 function file_(id) {
   const row = assetRows_().find(r => r[0] === id);
   if (!row) fail_('not_found', 'ไม่พบไฟล์');
@@ -282,7 +333,7 @@ function upload_(ctx, p) {
   if (bytes.length > 20 * 1024 * 1024) fail_('too_large', 'ไฟล์ใหญ่เกิน 20 MB');
   const id = Utilities.getUuid().replace(/-/g, '');
   const file = folder_().createFile(Utilities.newBlob(bytes, p.type, String(p.name || id)));
-  assetSheet_().appendRow([id, file.getId(), p.type, String(p.name || ''), bytes.length, new Date()]);
+  assetSheet_().appendRow([id, file.getId(), p.type, '~' + String(p.name || '').replace(/[<>]/g, '').slice(0, 200), bytes.length, new Date()]);
   bump_();
   return { id: id, size: bytes.length, type: p.type };
 }

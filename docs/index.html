@@ -2,6 +2,8 @@
 <html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="จองคิว เช็คคิว รายงานพัฒนาการ และความรู้ส่งเสริมพัฒนาการเด็ก">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' blob: data: https://script.google.com https://script.googleusercontent.com; worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <script src="js/config.js"></script>
 <script>window.EI_STATIC_ASSETS = {"e419942bc087f25ef982dc1303df837f": "files/autism.pdf", "84efaf4564b6adc5bfe20346043dfd07": "files/autism-cover.jpg", "015b0fb4e5bdd48494c79d8c94fc33a2": "files/adhd.pdf", "91218feaa312eab089170bbd253abeff": "files/adhd-cover.jpg", "e86c91f67f56fa2f1fb394f98501a6e5": "files/down.pdf", "17646151179bc88a395d7af1ef459efa": "files/down-cover.jpg", "1c347495fc2fe96c24dc9215685a0525": "files/id.pdf", "90125dae9aa26e47fe4085c09314ed4d": "files/id-cover.jpg", "a9ebdf1fd91bbd1d8787d9e1810d3d9c": "files/speech.pdf", "16e5a8d85aac47c200ca46142fb8e96e": "files/speech-cover.jpg", "875d1f4d749d9dea65bceeda54be8a9f": "files/gdd.pdf", "869d0362ea9c36f9df319fcf36b9a805": "files/gdd-cover.jpg", "1a644802046ba43242810fa9a954065b": "files/ld.pdf", "9d31cdd155c1355883ec3bd4283c8d93": "files/ld-cover.jpg", "a35a2e6e1765e4afa1c36505bc52f12c": "files/ws-trace.pdf", "9cf140084c6f1687bad1236d88d8dede": "files/ws-trace-cover.jpg", "a8d1785f392f42856efc04480765d66d": "files/ws-match.pdf", "9ab5fed739c7050562488a5e679f7877": "files/ws-match-cover.jpg", "8344e49f400c86c52aac9acc5fe9560b": "files/ws-color.pdf", "b18628cd5bd1cf244b59aaaf6fdfc9f9": "files/ws-color-cover.jpg"};</script>
@@ -454,6 +456,7 @@ label.upl{display:inline-flex;align-items:center}
       <label class="row small" id="staffRow" hidden><input type="checkbox" id="staffMode" style="width:auto"> บันทึกแทนผู้ปกครอง (โทร / LINE / walk-in)</label>
       <div id="summary" class="summary small" hidden></div>
       <div id="formMsg" hidden></div>
+      <label class="row small" style="align-items:flex-start;gap:8px;flex-wrap:nowrap"><input type="checkbox" id="pdpa" style="width:auto;margin-top:4px"> <span>ข้าพเจ้ายินยอมให้ศูนย์เก็บและใช้ข้อมูลของข้าพเจ้าและบุตร เฉพาะเพื่อการนัดหมาย การประเมิน และการดูแลพัฒนาการเด็กเท่านั้น ศูนย์จะไม่เปิดเผยข้อมูลแก่บุคคลอื่นโดยไม่ได้รับความยินยอม และขอให้ลบข้อมูลได้โดยติดต่อศูนย์</span></label>
       <div id="formCal" class="row" hidden></div>
       <div class="row end"><button class="btn" id="submitBtn" type="submit" disabled>ยืนยันการจอง</button></div>
     </form>
@@ -928,6 +931,7 @@ $("form").addEventListener("submit", async e => {
   e.preventDefault(); msg("formMsg"); $("formCal").hidden = true;
   const {out, errs} = readFields(S.cfg.fields.filter(f=>f.on), "fld_");
   const code = $("famCode").value.trim(); if(!/^\d{6}$/.test(code)) errs.push("ตั้งรหัสเช็คคิวเป็นตัวเลข 6 หลัก");
+  if(!(S.isAdmin && $("staffMode").checked) && !$("pdpa").checked) errs.push("กรุณาอ่านและกดยินยอมการเก็บข้อมูลก่อนจอง");
   if(errs.length){ msg("formMsg", errs.join(" · "), "err"); return; }
   const btn=$("submitBtn"); btn.disabled=true; btn.textContent="กำลังจอง…";
   try{

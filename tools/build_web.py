@@ -33,11 +33,29 @@ rep('if(S.isAdmin){ $("adminTab").hidden=false; resetDraft(); adminBoot(); }',
 rep('<button type="button" class="btn ghost" id="lockBtn">ล็อก</button>',
     '<button type="button" class="btn ghost" id="lockBtn">ล็อก</button><button type="button" class="btn ghost" onclick="EI.staffLogout()">ออกจากระบบ</button>')
 
+# PDPA: parents agree to how their data is used before booking
+rep('      <div id="formCal" class="row" hidden></div>',
+    '      <label class="row small" style="align-items:flex-start;gap:8px;flex-wrap:nowrap"><input type="checkbox" id="pdpa" style="width:auto;margin-top:4px"> <span>ข้าพเจ้ายินยอมให้ศูนย์เก็บและใช้ข้อมูลของข้าพเจ้าและบุตร เฉพาะเพื่อการนัดหมาย การประเมิน และการดูแลพัฒนาการเด็กเท่านั้น ศูนย์จะไม่เปิดเผยข้อมูลแก่บุคคลอื่นโดยไม่ได้รับความยินยอม และขอให้ลบข้อมูลได้โดยติดต่อศูนย์</span></label>\n      <div id="formCal" class="row" hidden></div>')
+rep('const code = $("famCode").value.trim(); if(!/^\\d{6}$/.test(code)) errs.push("ตั้งรหัสเช็คคิวเป็นตัวเลข 6 หลัก");',
+    'const code = $("famCode").value.trim(); if(!/^\\d{6}$/.test(code)) errs.push("ตั้งรหัสเช็คคิวเป็นตัวเลข 6 หลัก");\n  if(!(S.isAdmin && $("staffMode").checked) && !$("pdpa").checked) errs.push("กรุณาอ่านและกดยินยอมการเก็บข้อมูลก่อนจอง");')
+
+# Content-Security-Policy: the page may only talk to itself and to the Apps Script backend
+extra = os.environ.get("EI_EXTRA_CONNECT", "")   # tests only, e.g. http://localhost:8787
+CSP = ("default-src 'self'; "
+       "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; "
+       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+       "font-src https://fonts.gstatic.com data:; "
+       "img-src 'self' data: blob:; "
+       f"connect-src 'self' blob: data: https://script.google.com https://script.googleusercontent.com {extra}".rstrip() + "; "
+       "worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'")
+
 static = json.load(open(os.path.join(ROOT, "docs", "files", "index.json"), encoding="utf-8"))
 head = f'''<!doctype html>
 <html lang="th"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="จองคิว เช็คคิว รายงานพัฒนาการ และความรู้ส่งเสริมพัฒนาการเด็ก">
+<meta http-equiv="Content-Security-Policy" content="{CSP}">
+<meta name="referrer" content="no-referrer">
 <style>:root{{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}}body{{margin:0}}img{{max-width:100%}}[hidden]{{display:none!important}}</style>
 <script src="js/config.js"></script>
 <script>window.EI_STATIC_ASSETS = {json.dumps({k: "files/" + v for k, v in static.items()})};</script>
