@@ -902,7 +902,7 @@ function renderSummary(){
   const ok = S.service && S.date && S.slot;
   $("summary").hidden = !ok;
   if(ok) $("summary").innerHTML = `<b>${esc(S.service)}</b> · ${thDateLong(S.date)} · เวลา ${esc(S.slot)} น.`;
-  $("submitBtn").disabled = !ok || !S.db || S.readOnly;
+  $("submitBtn").disabled = !S.db || S.readOnly;
 }
 
 /* ---------- dynamic form fields ---------- */
@@ -932,6 +932,9 @@ function readFields(fields, prefix){
 $("form").addEventListener("submit", async e => {
   e.preventDefault(); msg("formMsg"); $("formCal").hidden = true;
   const {out, errs} = readFields(S.cfg.fields.filter(f=>f.on), "fld_");
+  const miss = [!S.service && "บริการ", !S.date && "วันที่", !S.slot && "เวลา"].filter(Boolean);
+  if(miss.length){ msg("formMsg", "ยังไม่ได้เลือก: " + miss.join(" · ") + " (เลือกที่ด้านบน ช่วงเวลาที่ขึ้นว่า \"เต็มแล้ว\" เลือกไม่ได้)", "err");
+    (S.service ? (S.date ? $("slots") : $("cal")) : $("services")).scrollIntoView({behavior:"smooth", block:"center"}); return; }
   const code = $("famCode").value.trim(); if(!/^\d{6}$/.test(code)) errs.push("ตั้งรหัสเช็คคิวเป็นตัวเลข 6 หลัก");
   if(!(S.isAdmin && $("staffMode").checked) && !$("pdpa").checked) errs.push("กรุณาอ่านและกดยินยอมการเก็บข้อมูลก่อนจอง");
   if(errs.length){ msg("formMsg", errs.join(" · "), "err"); return; }

@@ -98,6 +98,14 @@ rep('<link rel="preconnect" href="https://fonts.googleapis.com">',
     '<link rel="preconnect" href="https://script.google.com" crossorigin>\n<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>\n'
     '<link rel="preconnect" href="https://fonts.googleapis.com">\n<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>')
 
+# ---- booking button: always pressable; say what is still missing instead of staying grey ----
+rep('  $("submitBtn").disabled = !ok || !S.db || S.readOnly;', '  $("submitBtn").disabled = !S.db || S.readOnly;')
+rep('  const {out, errs} = readFields(S.cfg.fields.filter(f=>f.on), "fld_");',
+    '  const {out, errs} = readFields(S.cfg.fields.filter(f=>f.on), "fld_");\n'
+    '  const miss = [!S.service && "บริการ", !S.date && "วันที่", !S.slot && "เวลา"].filter(Boolean);\n'
+    '  if(miss.length){ msg("formMsg", "ยังไม่ได้เลือก: " + miss.join(" · ") + " (เลือกที่ด้านบน ช่วงเวลาที่ขึ้นว่า \\"เต็มแล้ว\\" เลือกไม่ได้)", "err");\n'
+    '    (S.service ? (S.date ? $("slots") : $("cal")) : $("services")).scrollIntoView({behavior:"smooth", block:"center"}); return; }')
+
 # Content-Security-Policy: the page may only talk to itself and to the Apps Script backend
 extra = os.environ.get("EI_EXTRA_CONNECT", "")   # tests only, e.g. http://localhost:8787
 CSP = ("default-src 'self'; "
