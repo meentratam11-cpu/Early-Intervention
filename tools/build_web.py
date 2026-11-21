@@ -35,7 +35,7 @@ rep('<button type="button" class="btn ghost" id="lockBtn">ล็อก</button>'
 
 # PDPA: parents agree to how their data is used before booking
 rep('      <div id="formCal" class="row" hidden></div>',
-    '      <label class="row small" style="align-items:flex-start;gap:8px;flex-wrap:nowrap"><input type="checkbox" id="pdpa" style="width:auto;margin-top:4px"> <span>ข้าพเจ้ายินยอมให้ศูนย์เก็บและใช้ข้อมูลของข้าพเจ้าและบุตร เฉพาะเพื่อการนัดหมาย การประเมิน และการดูแลพัฒนาการเด็กเท่านั้น ศูนย์จะไม่เปิดเผยข้อมูลแก่บุคคลอื่นโดยไม่ได้รับความยินยอม และขอให้ลบข้อมูลได้โดยติดต่อศูนย์</span></label>\n      <div id="formCal" class="row" hidden></div>')
+    '      <label class="consent" for="pdpa"><input type="checkbox" id="pdpa"> <span><b>ยินยอมให้เก็บข้อมูล (จำเป็น)</b><br>ข้าพเจ้ายินยอมให้ศูนย์เก็บและใช้ข้อมูลของข้าพเจ้าและบุตร เฉพาะเพื่อการนัดหมาย การประเมิน และการดูแลพัฒนาการเด็กเท่านั้น ศูนย์จะไม่เปิดเผยข้อมูลแก่บุคคลอื่นโดยไม่ได้รับความยินยอม และขอให้ลบข้อมูลได้โดยติดต่อศูนย์</span></label>\n      <div id="formCal" class="row" hidden></div>')
 rep('const code = $("famCode").value.trim(); if(!/^\\d{6}$/.test(code)) errs.push("ตั้งรหัสเช็คคิวเป็นตัวเลข 6 หลัก");',
     'const code = $("famCode").value.trim(); if(!/^\\d{6}$/.test(code)) errs.push("ตั้งรหัสเช็คคิวเป็นตัวเลข 6 หลัก");\n  if(!(S.isAdmin && $("staffMode").checked) && !$("pdpa").checked) errs.push("กรุณาอ่านและกดยินยอมการเก็บข้อมูลก่อนจอง");')
 
@@ -116,6 +116,51 @@ CSP = ("default-src 'self'; "
        f"connect-src 'self' blob: data: https://script.google.com https://script.googleusercontent.com {extra}".rstrip() + "; "
        "worker-src 'self' blob:; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'")
 
+
+# Clearer controls on phones: solid colour for what is chosen, white boxes with real borders, big tick box.
+MOBILE_CSS = """<style>
+/* tick boxes were styled like text boxes and shrank to a dot on phones */
+input[type=checkbox],input[type=radio]{width:24px;height:24px;min-width:24px;padding:0;margin:0;flex:none;accent-color:var(--accent);cursor:pointer}
+input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{background:#fff;border:2px solid #cbbfe0;min-height:48px;font-size:16px}
+textarea{min-height:90px}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
+input::placeholder,textarea::placeholder{color:#8a8ca3}
+label.f{font-size:.95rem;font-weight:600}
+/* consent box */
+.consent{display:flex;gap:12px;align-items:flex-start;padding:14px 16px;border:2px solid #e3a3b2;border-radius:16px;background:#fff6f8;font-size:.9rem;line-height:1.55;cursor:pointer;margin-top:6px}
+.consent input{width:28px;height:28px;min-width:28px;margin-top:2px;outline:2px solid #d98a9c;outline-offset:1px;border-radius:6px}
+.consent:has(input:checked) input{outline-color:var(--leaf)}
+.consent b{font-size:1rem;color:var(--ink)}
+.consent:has(input:checked){border-color:var(--leaf);background:#f1f8ec}
+/* tabs */
+.tabs button{color:var(--ink);font-weight:600;min-height:44px}
+.tabs button[aria-selected="true"]{background:var(--accent);color:#fff;box-shadow:none}
+/* services */
+.chip{border:2px solid var(--c);background:#fff;font-weight:600;min-height:48px;padding:10px 18px;box-shadow:0 3px 0 -1px color-mix(in srgb,var(--c) 45%,transparent)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 3px 0 -1px color-mix(in srgb,var(--accent) 55%,transparent)}
+.chip[aria-pressed="true"]::before{content:"✓ "}
+/* days you can book */
+.day.open{background:#fff;border:2px solid color-mix(in srgb,var(--leaf) 60%,#fff)}
+.day .t{font-size:.7rem}
+.day.sel,.day.open.sel{background:var(--accent);border:2px solid var(--accent);color:#fff}
+.day.sel .t{color:#fff}
+/* time slots */
+.slot{border:2px solid color-mix(in srgb,var(--leaf) 60%,#fff);background:#fff;min-height:58px;font-weight:600}
+.slot[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.slot[aria-pressed="true"] small{color:#fff}
+.slot{position:relative}
+.slot[aria-pressed="true"]::after{content:"✓";position:absolute;bottom:10px;right:14px;font-size:1.3rem;line-height:1}
+.slot:disabled{background:var(--sunk);border-color:transparent;opacity:.6}
+/* buttons */
+.btn{min-height:46px}
+#submitBtn{min-height:56px;font-size:1.1rem;padding:12px 32px}
+@media (max-width:600px){
+  #submitBtn{width:100%}
+  #form .row.end{justify-content:stretch}
+  .tabs button{padding:8px 14px}
+}
+</style>"""
+
 static = json.load(open(os.path.join(ROOT, "docs", "files", "index.json"), encoding="utf-8"))
 head = f'''<!doctype html>
 <html lang="th"><head><meta charset="utf-8">
@@ -129,5 +174,5 @@ head = f'''<!doctype html>
 <script src="js/shim.js"></script>
 </head><body>
 '''
-open(os.path.join(ROOT, "docs", "index.html"), "w", encoding="utf-8").write(head + src + "\n</body></html>\n")
+open(os.path.join(ROOT, "docs", "index.html"), "w", encoding="utf-8").write(head + src + "\n" + MOBILE_CSS + "\n</body></html>\n")
 print("docs/index.html written")
