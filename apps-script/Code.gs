@@ -70,6 +70,7 @@ function route_(p) {
     case 'delete': return write_(ctx, [{ op: 'delete', path: p.path }]);
     case 'batch':  return write_(ctx, p.writes || []);
     case 'acquire':return acquire_(ctx, p.path, p.holder, p.ttl);
+    case 'claim':  return claim_(ctx, p);
     case 'assets': if (!ctx.staff) fail_('permission', 'staff only'); return { assets: assetList_() };
     case 'file':   return file_(p.id);
     case 'upload': return upload_(ctx, p);
@@ -161,6 +162,30 @@ function loadAll_() {
   });
   return { sh: sh, map: map };
 }
+/* Reads go through a copy in CacheService, keyed by the change counter (REV), so most requests
+   skip reading the sheet. Any write bumps REV, which makes the old copy unused. Writes always read the sheet. */
+const CACHE_PIECE = 30000;    // characters per cache entry (Thai text is 3 bytes per character; an entry holds 100 KB)
+function cachedAll_() {
+  const cache = CacheService.getScriptCache(), rev = rev_();
+  try {
+    const meta = JSON.parse(cache.get('docs_meta') || 'null');
+    if (meta && meta.rev === rev) {
+      const keys = []; for (let i = 0; i < meta.n; i++) keys.push('docs_' + rev + '_' + i);
+      const got = cache.getAll(keys);
+      if (keys.every(k => got[k] != null)) return JSON.parse(keys.map(k => got[k]).join(''));
+    }
+  } catch (e) {}
+  const map = loadAll_().map;
+  try {
+    const json = JSON.stringify(map), n = Math.ceil(json.length / CACHE_PIECE), put = {};
+    if (n <= 60) {
+      for (let i = 0; i < n; i++) put['docs_' + rev + '_' + i] = json.slice(i * CACHE_PIECE, (i + 1) * CACHE_PIECE);
+      cache.putAll(put, 21600);
+      cache.put('docs_meta', JSON.stringify({ rev: rev, n: n }), 21600);
+    }
+  } catch (e) {}
+  return map;
+}
 function toRow_(path, version, data) {
   const json = JSON.stringify(data);
   if (json.length > CHUNK * MAX_CHUNKS) fail_('too_large', 'ข้อมูลเอกสารนี้ใหญ่เกินไป');
@@ -175,7 +200,7 @@ function readDoc_(ctx, path) {
   path = validDocPath_(path);
   if (!allowed_(ctx, path, 1)) return null;           // hidden reads look like missing documents
   if (!ctx.staff && segs_(path)[0] === 'fam') famGuard_();
-  const d = loadAll_().map[path];
+  const d = cachedAll_()[path];
   if (!d && !ctx.staff && segs_(path)[0] === 'fam') famMiss_();
   return d ? { id: segs_(path).pop(), data: d.data, version: d.version } : null;
 }
@@ -184,7 +209,7 @@ function listCol_(ctx, col, all) {
   const cs = segs_(col);
   if (!ctx.staff && NO_PUBLIC_LIST.indexOf(cs[0]) >= 0) fail_('permission', 'staff only');
   if (!cs.length || cs.length % 2 === 0) fail_('bad_request', 'bad collection path');
-  all = all || loadAll_().map;
+  all = all || cachedAll_();
   const out = [];
   Object.keys(all).forEach(p => {
     const s = segs_(p);
@@ -196,7 +221,7 @@ function listCol_(ctx, col, all) {
   return out;
 }
 function many_(ctx, reqs) {
-  const all = loadAll_().map;
+  const all = cachedAll_();
   const res = reqs.slice(0, ctx.staff ? 80 : 30).map(q => {
     try {
       if (q.t === 'doc') {
@@ -264,31 +289,66 @@ function write_(ctx, writes) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const st = loadAll_(), sh = st.sh, map = st.map, versions = {};
-    const plan = writes.map(w => {
-      const path = validDocPath_(w.path);
-      if (!allowed_(ctx, path, 2)) fail_('permission', 'ไม่มีสิทธิ์แก้ไขข้อมูลนี้');
-      if ((w.op === 'set' || w.op === 'update') && (!w.data || typeof w.data !== 'object' || Array.isArray(w.data))) fail_('bad_request', 'data must be an object');
-      if (w.op === 'update' && !map[path]) fail_('invalid_argument', 'document does not exist');
-      const item = { op: w.op, path: path, data: w.data };
-      if (ctx.staff) staffWrite_(item); else visitorWrite_(ctx, item, map[path]);
-      return item;
-    });
-    plan.forEach(w => {
-      const cur = map[w.path];
-      if (w.op === 'delete') {
-        if (cur) { sh.getRange(cur.row, 1, 1, 3 + MAX_CHUNKS).clearContent(); delete map[w.path]; }
-        return;
-      }
-      const data = w.op === 'update' ? merge_(cur.data, w.data) : w.data;
-      const version = cur ? cur.version + 1 : 1;
-      const row = toRow_(w.path, version, data);
-      if (cur) sh.getRange(cur.row, 1, 1, row.length).setValues([row]);
-      else { sh.appendRow(row); }
-      map[w.path] = { row: cur ? cur.row : sh.getLastRow(), version: version, data: data };
-      versions[w.path] = version;
-    });
+    const versions = applyWrites_(ctx, writes, loadAll_());
+    SpreadsheetApp.flush();
     return { rev: bump_(), versions: versions };
+  } finally { lock.releaseLock(); }
+}
+/* Applies writes to the sheet. Call only while holding the script lock. ops: set, update, merge (update or create), delete */
+function applyWrites_(ctx, writes, st) {
+  const sh = st.sh, map = st.map, versions = {};
+  const plan = writes.map(w => {
+    const path = validDocPath_(w.path);
+    if (!allowed_(ctx, path, 2)) fail_('permission', 'ไม่มีสิทธิ์แก้ไขข้อมูลนี้');
+    if (['set', 'update', 'merge', 'delete'].indexOf(w.op) < 0) fail_('bad_request', 'unknown write');
+    if (w.op !== 'delete' && (!w.data || typeof w.data !== 'object' || Array.isArray(w.data))) fail_('bad_request', 'data must be an object');
+    if (w.op === 'update' && !map[path]) fail_('invalid_argument', 'document does not exist');
+    const item = { op: w.op === 'merge' ? (map[path] ? 'update' : 'set') : w.op, path: path, data: w.data };
+    if (ctx.staff) staffWrite_(item); else visitorWrite_(ctx, item, map[path]);
+    return item;
+  });
+  plan.forEach(w => {
+    const cur = map[w.path];
+    if (w.op === 'delete') {
+      if (cur) { sh.getRange(cur.row, 1, 1, 3 + MAX_CHUNKS).clearContent(); delete map[w.path]; }
+      return;
+    }
+    const data = w.op === 'update' ? merge_(cur.data, w.data) : w.data;
+    const version = cur ? cur.version + 1 : 1;
+    const row = toRow_(w.path, version, data);
+    if (cur) sh.getRange(cur.row, 1, 1, row.length).setValues([row]);
+    else { sh.appendRow(row); }
+    map[w.path] = { row: cur ? cur.row : sh.getLastRow(), version: version, data: data };
+    versions[w.path] = version;
+  });
+  return versions;
+}
+/* Books the first free seat of a time slot in one step, then applies the follow-up writes
+   (for example the booking itself). The text "$TAKEN" in those writes becomes the seat id.
+   Returns { takenId: "" } when the slot is full. */
+function claim_(ctx, p) {
+  const date = String(p.date || ''), slot = String(p.slot || ''), bid = String(p.bid || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !/^\d{4}$/.test(slot) || !/^[A-Za-z0-9]{4,40}$/.test(bid)) fail_('bad_request', 'ข้อมูลที่นั่งไม่ถูกต้อง');
+  const then = Array.isArray(p.then) ? p.then : [];
+  if (then.length > 10) fail_('bad_request', 'too many writes');
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const st = loadAll_(), cfg = (st.map['config/main'] || {}).data || {};
+    const cap = Math.max(1, Math.min(50, Number(cfg.capacity) || 2));
+    let takenId = '';
+    for (let seat = 1; seat <= cap && !takenId; seat++) {
+      const id = date + '_' + slot + '_' + seat, cur = st.map['taken/' + id];
+      if (!(cur && cur.data && cur.data.bid)) takenId = id;
+    }
+    if (!takenId) return { takenId: '', rev: rev_() };
+    const fill = v => typeof v === 'string' ? (v === '$TAKEN' ? takenId : v)
+      : Array.isArray(v) ? v.map(fill) : (v && typeof v === 'object') ? Object.keys(v).reduce((o, k) => (o[k] = fill(v[k]), o), {}) : v;
+    const writes = [{ op: 'set', path: 'taken/' + takenId, data: { date: date, slot: slot, owner: String(p.owner || ''), bid: bid } }]
+      .concat(then.map(w => ({ op: w.op, path: w.path, data: fill(w.data) })));
+    const versions = applyWrites_(ctx, writes, st);
+    SpreadsheetApp.flush();
+    return { takenId: takenId, rev: bump_(), versions: versions };
   } finally { lock.releaseLock(); }
 }
 /* short lease used to hand out booking seats one at a time */
