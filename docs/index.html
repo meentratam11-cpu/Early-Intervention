@@ -11,9 +11,11 @@
 </head><body>
 <title>จองคิว Early Intervention</title>
 <meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://script.google.com" crossorigin>
+<link rel="preconnect" href="https://script.googleusercontent.com" crossorigin>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Mali:wght@500;600;700&family=IBM+Plex+Sans+Thai:wght@400;500;600&display=swap">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 /* Layout: one working column on watercolor paper; a painted hero of developmental toys, then tabbed tools.
    Palette taken from a watercolor scene: cornflower, rose, sunflower, leaf, lilac on warm paper. */
@@ -938,14 +940,12 @@ $("form").addEventListener("submit", async e => {
     const staff = S.isAdmin && $("staffMode").checked;
     const owner = staff ? "staff" : S.uid;
     const bid = "b" + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-    const takenId = await claimSeat(S.date, S.slot, owner, bid);
-    if(!takenId){ msg("formMsg","ช่วงเวลานี้เพิ่งเต็ม กรุณาเลือกเวลาอื่น","err"); return; }
     const rec = { ...out, id:bid, date:S.date, slot:S.slot, service:S.service, status:"confirmed", famCode:code,
-      createdAt:new Date().toISOString(), channel: staff ? "เจ้าหน้าที่บันทึก" : "ออนไลน์", takenId, needsRating: !staff };
-    const ref = S.db.doc("bookings/"+owner);
-    const snap = await ref.get();
-    if(snap.exists) await ref.update({items:{[bid]:rec}, updatedAt:rec.createdAt});
-    else await ref.set({items:{[bid]:rec}, updatedAt:rec.createdAt});
+      createdAt:new Date().toISOString(), channel: staff ? "เจ้าหน้าที่บันทึก" : "ออนไลน์", takenId:"$TAKEN", needsRating: !staff };
+    const takenId = await window.EI.claim(S.date, slotKey(S.slot), owner, bid,
+      [{op:"merge", path:"bookings/"+owner, data:{items:{[bid]:rec}, updatedAt:rec.createdAt}}]);
+    if(!takenId){ msg("formMsg","ช่วงเวลานี้เพิ่งเต็ม กรุณาเลือกเวลาอื่น","err"); return; }
+    rec.takenId = takenId;
     S.cfg.fields.forEach(f=>{ if(!["parentName","phone","lineId"].includes(f.id)){ const el=$("fld_"+f.id); if(el) el.value=""; } });
     S.slot=null; renderSlots(); renderSummary();
     msg("formMsg", `จองสำเร็จ ${rec.childName||""} · ${thDateLong(rec.date)} เวลา ${rec.slot} น. เช็คคิวและดูรายงานพัฒนาการได้ที่แท็บ “เช็คคิว / พัฒนาการ” ด้วยเบอร์ ${rec.phone} และรหัส ${code} (ถ้าศูนย์เคยให้รหัสไว้แล้ว ให้ใช้รหัสเดิม)`, "ok");
@@ -982,13 +982,16 @@ async function saveBooking(owner, rec, patch){
   const moved = next.date!==rec.date || next.slot!==rec.slot;
   let release = false;
   if(active && (moved || !wasActive)){
-    const t = await claimSeat(next.date, next.slot, owner, rec.id);
+    const then = [{op:"update", path:"bookings/"+owner, data:{items:{[rec.id]:{...next, takenId:"$TAKEN"}}, updatedAt:now}}];
+    if(wasActive && rec.takenId) then.push({op:"delete", path:"taken/"+rec.takenId});
+    const t = await window.EI.claim(next.date, slotKey(next.slot), owner, rec.id, then);
     if(!t){ const e = new Error("full"); e.code="full"; throw e; }
-    next.takenId = t; release = wasActive;
+    return;
   }
   if(!active){ next.takenId = ""; next.cancelledAt = rec.cancelledAt || now; release = wasActive; }
-  await S.db.doc("bookings/"+owner).update({items:{[rec.id]:next}, updatedAt:now});
-  if(release && rec.takenId) await S.db.doc("taken/"+rec.takenId).delete();
+  const writes = [{op:"update", path:"bookings/"+owner, data:{items:{[rec.id]:next}, updatedAt:now}}];
+  if(release && rec.takenId) writes.push({op:"delete", path:"taken/"+rec.takenId});
+  await window.EI.batch(writes);
 }
 
 /* ---------- my bookings ---------- */
@@ -1182,7 +1185,7 @@ $("holForm").addEventListener("submit", async e => {
   const days=[]; for(let d=parse(from); ymd(d)<=to; d=addDays(d,1)) days.push(ymd(d));
   if(days.length>62){ msg("holMsg","เพิ่มได้ครั้งละไม่เกิน 62 วัน","err"); return; }
   try{
-    for(const d of days) await S.db.doc("holidays/"+d).set({date:d, name});
+    await window.EI.batch(days.map(d=>({op:"set", path:"holidays/"+d, data:{date:d, name}})));
     const affected = S.all.filter(r=>days.includes(r.date) && r.status==="confirmed");
     msg("holMsg", `เพิ่ม ${days.length} วันแล้ว` + (affected.length?` · มีนัดค้าง ${affected.length} ราย ดูได้ในแท็บรายการนัด (มีป้าย “ตรงวันหยุด”)`:""), affected.length?"warn":"ok");
     $("hName").value=""; $("hTo").value="";
@@ -1200,7 +1203,9 @@ document.addEventListener("click", async e => {
 function updateExportInfo(){ $("xInfo").textContent = `จะส่งออก ${filtered($("xFrom").value,$("xTo").value,$("xStatus").value,"").length} รายการ`; }
 $("xBtn").onclick = async () => {
   msg("xMsg");
-  if(typeof XLSX==="undefined"){ msg("xMsg","โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ ลองรีเฟรชหน้า","err"); return; }
+  if(typeof XLSX==="undefined"){ msg("xMsg","กำลังเตรียมไฟล์ Excel…");
+    try{ await loadScript("https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"); }catch(e){ msg("xMsg","โหลดตัวสร้างไฟล์ Excel ไม่สำเร็จ ตรวจสอบอินเทอร์เน็ตแล้วลองอีกครั้ง","err"); return; }
+    msg("xMsg"); }
   const dl = await claude.use("downloads");
   if(!dl){ msg("xMsg","เบราว์เซอร์นี้ดาวน์โหลดไฟล์ไม่ได้ ลองเปิดด้วย Chrome หรือ Safari","err"); return; }
   const rows = filtered($("xFrom").value,$("xTo").value,$("xStatus").value,"").map((r,i)=>{
@@ -1974,9 +1979,8 @@ $("rateModal").addEventListener("click", async e => {
   const {owner, rec, score} = rateCtx;
   try{
     const entry = {bid:rec.id, score, comment:$("rateNote").value.trim().slice(0,500), service:rec.service||"", date:rec.date, at:new Date().toISOString()};
-    const fref = S.db.doc("feedback/"+owner), fsnap = await fref.get();
-    if(fsnap.exists) await fref.update({items:{[rec.id]:entry}}); else await fref.set({items:{[rec.id]:entry}});
-    await S.db.doc("bookings/"+owner).update({items:{[rec.id]:{rated:true}}});
+    await window.EI.batch([{op:"merge", path:"feedback/"+owner, data:{items:{[rec.id]:entry}}},
+      {op:"update", path:"bookings/"+owner, data:{items:{[rec.id]:{rated:true}}}}]);
     $("rateModal").hidden = true; $("rateModal").innerHTML = ""; document.body.style.overflow = ""; rateCtx = null;
     toast("ขอบคุณสำหรับการประเมินค่ะ");
     setTimeout(checkPendingRating, 300);

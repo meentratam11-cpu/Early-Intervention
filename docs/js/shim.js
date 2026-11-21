@@ -9,6 +9,9 @@
   const API = (CFG.API_URL || "").trim();
   const STATIC = window.EI_STATIC_ASSETS || {};         // id -> file under ./files/
   const POLL_MS = CFG.POLL_MS || 20000;
+  // Public, non-personal collections are kept on the device so a return visit shows them at once.
+  // Nothing personal (bookings, reports, families, tickets, feedback) is ever stored this way.
+  const DEVICE_CACHE = ["config", "holidays", "library", "hwlib", "taken", "acks"];
 
   /* ---------- small helpers ---------- */
   const store = {
@@ -62,24 +65,80 @@
 
   const subs = new Set();
   let lastRev = -1, refreshTimer = null, refreshing = null;
+  const cacheKey = s => DEVICE_CACHE.includes(segs(s.path)[0]) ? "ei_c:" + s.kind + ":" + s.path : "";
+  function remember(s, raw){ const k = cacheKey(s); if (k) store.set(k, JSON.stringify(raw)); }
+  /* hand the subscriber a new raw result (doc or doc list) if it differs from what it last saw */
+  function deliver(s, raw){
+    if (s.kind === "doc") {
+      const key = JSON.stringify(raw === undefined ? null : raw);
+      if (key !== s.last) { s.last = key; s.raw = raw || null; safe(() => s.next(docSnap(s.path, raw || null))); }
+    } else {
+      s.raw = raw || [];
+      const docs = applyQuery(s.raw, s.q), key = JSON.stringify(docs);
+      if (key !== s.last) { const prev = s.prevDocs; s.last = key; s.prevDocs = docs; safe(() => s.next(querySnap(s.path, docs, prev))); }
+    }
+  }
+  function safe(fn){ try { fn(); } catch (e) { console.error(e); } }
+  function subscribe(s){
+    subs.add(s);
+    const k = cacheKey(s), saved = k && store.get(k);
+    if (saved) setTimeout(() => { if (subs.has(s) && s.last === undefined) { try { deliver(s, JSON.parse(saved)); } catch {} } }, 0);
+    scheduleRefresh();
+    return () => subs.delete(s);
+  }
+  /* apply a write to what subscribers already hold, so the screen changes before the server answers */
+  function mergeDeep(base, patch){
+    if (!patch || typeof patch !== "object" || Array.isArray(patch)) return patch;
+    const out = (base && typeof base === "object" && !Array.isArray(base)) ? Object.assign({}, base) : {};
+    Object.keys(patch).forEach(k => { const v = patch[k]; out[k] = (v && typeof v === "object" && !Array.isArray(v)) ? mergeDeep(out[k], v) : v; });
+    return out;
+  }
+  /* Writes the server may not have included yet. A server answer only counts a write once that write
+     had finished before the answer was asked for; until then the write is laid over every answer. */
+  let clock = 0;
+  const overlay = [];
+  function withOverlay(s, raw, sentAt){
+    overlay.forEach(o => { if (!o.doneAt || o.doneAt > sentAt) raw = applyTo(s, raw, o.writes).raw; });
+    return raw;
+  }
+  function applyLocal(writes){
+    subs.forEach(s => { if (s.raw === undefined) return; const r = applyTo(s, s.raw, writes); if (r.touched) deliver(s, r.raw); });
+  }
+  function applyTo(s, raw0, writes){
+    let raw = s.kind === "doc" ? (raw0 ? JSON.parse(JSON.stringify(raw0)) : null) : (raw0 || []).map(d => Object.assign({}, d));
+    let touched = false;
+    writes.forEach(w => {
+      const ws = segs(w.path), id = ws[ws.length - 1];
+      if (s.kind === "doc") {
+        if (w.path !== s.path) return; touched = true;
+        if (w.op === "delete") raw = null;
+        else if (w.op === "set") raw = { id, data: w.data };
+        else raw = { id, data: mergeDeep(raw ? raw.data : {}, w.data) };
+      } else {
+        if (ws.slice(0, -1).join("/") !== segs(s.path).join("/")) return; touched = true;
+        const i = raw.findIndex(d => d.id === id);
+        if (w.op === "delete") { if (i >= 0) raw.splice(i, 1); return; }
+        const data = w.op === "set" ? w.data : mergeDeep(i >= 0 ? raw[i].data : {}, w.data);
+        if (i >= 0) raw[i] = Object.assign({}, raw[i], { data }); else { raw.push({ id, data }); raw.sort((a, b) => a.id < b.id ? -1 : a.id > b.id ? 1 : 0); }
+      }
+    });
+    return { raw, touched };
+  }
   function scheduleRefresh(delay){ clearTimeout(refreshTimer); refreshTimer = setTimeout(refresh, delay == null ? 40 : delay); }
   async function refresh(){
     if (refreshing) { scheduleRefresh(300); return; }
     const list = [...subs]; if (!list.length) return;
     refreshing = (async () => {
       try {
+        const sentAt = clock;
         const r = await call({ a: "many", reqs: list.map(s => s.kind === "doc" ? { t: "doc", path: s.path } : { t: "col", path: s.path }) });
-        lastRev = r.rev;
+        for (let i = overlay.length - 1; i >= 0; i--) if (overlay[i].doneAt && overlay[i].doneAt <= sentAt) overlay.splice(i, 1);
+        lastRev = r.rev; window.EI.dataAt = window.EI.dataAt || Date.now();
         list.forEach((s, i) => {
           const out = r.res[i] || {};
           if (out.error) { s.error && s.error(err(out.error, out.message)); return; }
-          if (s.kind === "doc") {
-            const key = JSON.stringify(out.doc);
-            if (key !== s.last) { s.last = key; s.next(docSnap(s.path, out.doc)); }
-          } else {
-            const docs = applyQuery(out.docs || [], s.q), key = JSON.stringify(docs);
-            if (key !== s.last) { const prev = s.prevDocs; s.last = key; s.prevDocs = docs; s.next(querySnap(s.path, docs, prev)); }
-          }
+          const raw = s.kind === "doc" ? (out.doc || null) : (out.docs || []);
+          remember(s, raw); deliver(s, withOverlay(s, raw, sentAt));
         });
       } catch (e) { list.forEach(s => s.error && s.error(e)); }
     })();
@@ -89,10 +148,15 @@
     if (document.visibilityState === "visible" && subs.size) {
       try { const r = await call({ a: "rev" }); if (r.rev !== lastRev) await refresh(); } catch {}
     }
-    setTimeout(poll, POLL_MS);
+    setTimeout(poll, isStaff() ? Math.min(POLL_MS, 10000) : POLL_MS);
   }
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && subs.size) scheduleRefresh(0); });
-  async function write(writes){ const r = await call({ a: "batch", writes }); scheduleRefresh(150); return r; }
+  async function write(writes){
+    const o = { writes, doneAt: 0 }; overlay.push(o);
+    applyLocal(writes);
+    try { const r = await call({ a: "batch", writes }); o.doneAt = ++clock; lastRev = r.rev; scheduleRefresh(150); return r; }
+    catch (e) { overlay.splice(overlay.indexOf(o), 1); scheduleRefresh(0); throw e; }   // put the screen back to what the server holds
+  }
 
   function docRef(path){
     return {
@@ -102,7 +166,7 @@
       update(data){ return write([{ op: "update", path, data }]).then(() => undefined); },
       delete(){ return write([{ op: "delete", path }]).then(() => undefined); },
       async acquire(o){ const r = await call({ a: "acquire", path, holder: o.holder, ttl: o.ttlMs }); return { acquired: r.acquired, holder: r.acquired ? o.holder : undefined }; },
-      onSnapshot(next, error){ const s = { kind: "doc", path, next, error, last: undefined }; subs.add(s); scheduleRefresh(); return () => subs.delete(s); },
+      onSnapshot(next, error){ return subscribe({ kind: "doc", path, next, error, last: undefined }); },
       collection(sub){ return colRef(path + "/" + sub); }
     };
   }
@@ -112,7 +176,7 @@
       orderBy(f, dir){ return makeQuery(path, Object.assign({}, q, { order: [f, dir || "asc"] })); },
       limit(n){ return makeQuery(path, Object.assign({}, q, { limit: n })); },
       async get(){ const r = await call({ a: "list", path }); return querySnap(path, applyQuery(r.docs || [], q)); },
-      onSnapshot(next, error){ const s = { kind: "col", path, q, next, error, last: undefined }; subs.add(s); scheduleRefresh(); return () => subs.delete(s); }
+      onSnapshot(next, error){ return subscribe({ kind: "col", path, q, next, error, last: undefined }); }
     };
   }
   function colRef(path){
@@ -213,6 +277,22 @@
     },
     staffLogout(){ store.set("ei_staff_token", null); location.reload(); },
     isStaff,
+    /* several writes in one trip to the server (ops: set, update, merge = update or create, delete) */
+    batch(writes){ return write(writes); },
+    /* take the first free seat of a slot and save the booking in the same trip; "$TAKEN" in `then` becomes the seat id */
+    async claim(date, slot, owner, bid, then){
+      const r = await call({ a: "claim", date, slot, owner, bid, then: then || [] });
+      if (r.takenId) {
+        // show the new seat and booking straight away, as the server saved them
+        const fill = v => typeof v === "string" ? (v === "$TAKEN" ? r.takenId : v)
+          : Array.isArray(v) ? v.map(fill) : (v && typeof v === "object") ? Object.keys(v).reduce((o, k) => (o[k] = fill(v[k]), o), {}) : v;
+        const writes = [{ op: "set", path: "taken/" + r.takenId, data: { date, slot, owner, bid } }]
+          .concat((then || []).map(w => ({ op: w.op, path: w.path, data: fill(w.data) })));
+        overlay.push({ writes, doneAt: ++clock }); applyLocal(writes);
+        lastRev = r.rev; scheduleRefresh(0);
+      }
+      return r.takenId || null;
+    },
     /* first-time setup: copy the starter content from seed.json into the new spreadsheet */
     async offerSeed(){
       if (!isStaff() || !API) return;
