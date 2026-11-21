@@ -1,0 +1,491 @@
+[
+ {
+  "path": "config/main",
+  "data": {
+   "advanceDays": 60,
+   "capacity": 1,
+   "clinicName": "คลินิกกระตุ้นพัฒนาการและปรับพฤติกรรมเด็ก",
+   "clinicSub": "ศูนย์บริการสาธารณสุข 38 จี๊ด - ทองคำ บำเพ็ญ",
+   "closedWeekdays": [
+    0,
+    2,
+    6
+   ],
+   "fields": [
+    {
+     "id": "childName",
+     "label": "ชื่อ-นามสกุลเด็ก",
+     "on": true,
+     "placeholder": "",
+     "required": true,
+     "type": "text"
+    },
+    {
+     "id": "childDob",
+     "label": "วันเกิดเด็ก",
+     "on": false,
+     "placeholder": "",
+     "required": false,
+     "type": "date"
+    },
+    {
+     "id": "parentName",
+     "label": "ชื่อผู้ปกครอง",
+     "on": true,
+     "placeholder": "",
+     "required": true,
+     "type": "text"
+    },
+    {
+     "id": "phone",
+     "label": "เบอร์โทรศัพท์",
+     "on": true,
+     "placeholder": "08x-xxx-xxxx",
+     "required": true,
+     "type": "tel"
+    },
+    {
+     "id": "lineId",
+     "label": "LINE ID",
+     "on": true,
+     "placeholder": "",
+     "required": false,
+     "type": "text"
+    },
+    {
+     "id": "visitType",
+     "label": "เคยมารับบริการแล้วหรือยัง",
+     "on": false,
+     "options": [
+      "ครั้งแรก",
+      "เคยมาแล้ว"
+     ],
+     "placeholder": "",
+     "required": false,
+     "type": "select"
+    },
+    {
+     "id": "note",
+     "label": "อาการหรือสิ่งที่อยากปรึกษา",
+     "on": false,
+     "placeholder": "เช่น ยังไม่พูดเป็นคำ อายุ 2 ปี 3 เดือน",
+     "required": false,
+     "type": "textarea"
+    },
+    {
+     "id": "f_mwnab7yx",
+     "label": "ใบประเมินพัฒนาการ",
+     "on": true,
+     "options": [
+      "ให้เจ้าหน้าที่พิมพ์ใบให้เลย",
+      "ไม่ต้องพิมพ์"
+     ],
+     "placeholder": "",
+     "required": false,
+     "type": "select"
+    }
+   ],
+   "formTitle": "ข้อมูลผู้รับบริการ",
+   "minNoticeDays": 3,
+   "remindDays": 4,
+   "services": [
+    {
+     "desc": "",
+     "name": "คัดกรองพัฒนาการ",
+     "on": true
+    },
+    {
+     "desc": "",
+     "name": "กระตุ้นพัฒนาการ",
+     "on": true
+    },
+    {
+     "desc": "",
+     "name": "ปรึกษาเรื่องพัฒนาการ",
+     "on": true
+    }
+   ],
+   "slots": [
+    "13:00-14:00",
+    "14:00-15:00"
+   ]
+  }
+ },
+ {
+  "path": "holidays/2026-12-05",
+  "data": {
+   "date": "2026-12-05",
+   "name": "วันพ่อแห่งชาติ / วันชาติ"
+  }
+ },
+ {
+  "path": "holidays/2026-12-10",
+  "data": {
+   "date": "2026-12-10",
+   "name": "วันรัฐธรรมนูญ"
+  }
+ },
+ {
+  "path": "holidays/2026-12-16",
+  "data": {
+   "date": "2026-12-16",
+   "name": "ลา"
+  }
+ },
+ {
+  "path": "holidays/2026-12-31",
+  "data": {
+   "date": "2026-12-31",
+   "name": "วันสิ้นปี"
+  }
+ },
+ {
+  "path": "holidays/2027-01-01",
+  "data": {
+   "date": "2027-01-01",
+   "name": "วันขึ้นปีใหม่"
+  }
+ },
+ {
+  "path": "holidays/2027-04-06",
+  "data": {
+   "date": "2027-04-06",
+   "name": "วันจักรี"
+  }
+ },
+ {
+  "path": "holidays/2027-04-13",
+  "data": {
+   "date": "2027-04-13",
+   "name": "วันสงกรานต์"
+  }
+ },
+ {
+  "path": "holidays/2027-04-14",
+  "data": {
+   "date": "2027-04-14",
+   "name": "วันสงกรานต์"
+  }
+ },
+ {
+  "path": "holidays/2027-04-15",
+  "data": {
+   "date": "2027-04-15",
+   "name": "วันสงกรานต์"
+  }
+ },
+ {
+  "path": "holidays/2027-05-01",
+  "data": {
+   "date": "2027-05-01",
+   "name": "วันแรงงานแห่งชาติ"
+  }
+ },
+ {
+  "path": "holidays/2027-05-04",
+  "data": {
+   "date": "2027-05-04",
+   "name": "วันฉัตรมงคล"
+  }
+ },
+ {
+  "path": "holidays/2027-06-03",
+  "data": {
+   "date": "2027-06-03",
+   "name": "วันเฉลิมพระชนมพรรษาพระราชินี"
+  }
+ },
+ {
+  "path": "holidays/2027-07-28",
+  "data": {
+   "date": "2027-07-28",
+   "name": "วันเฉลิมพระชนมพรรษา ร.10"
+  }
+ },
+ {
+  "path": "holidays/2027-08-12",
+  "data": {
+   "date": "2027-08-12",
+   "name": "วันแม่แห่งชาติ"
+  }
+ },
+ {
+  "path": "holidays/2027-10-13",
+  "data": {
+   "date": "2027-10-13",
+   "name": "วันนวมินทรมหาราช"
+  }
+ },
+ {
+  "path": "holidays/2027-10-23",
+  "data": {
+   "date": "2027-10-23",
+   "name": "วันปิยมหาราช"
+  }
+ },
+ {
+  "path": "hwlib/ex-el",
+  "data": {
+   "createdAt": "2026-11-20T00:00:00Z",
+   "domain": "EL",
+   "example": true,
+   "freq": "ทุกวัน ระหว่างอ่านนิทาน",
+   "icon": "book",
+   "id": "ex-el",
+   "steps": "ชี้รูปสัตว์ในหนังสือ\nทำเสียงให้ฟัง เช่น หมา โฮ่ง ๆ\nรอให้น้องเลียนเสียงตาม แล้วชม",
+   "tips": "ตัวอย่างกิจกรรม รอให้น้องตอบสักครู่ก่อนพูดแทน",
+   "title": "เลียนเสียงสัตว์จากนิทานภาพ",
+   "video": ""
+  }
+ },
+ {
+  "path": "hwlib/ex-fm",
+  "data": {
+   "createdAt": "2026-11-20T00:00:00Z",
+   "domain": "FM",
+   "example": true,
+   "freq": "วันละ 10 นาที",
+   "icon": "blocks",
+   "id": "ex-fm",
+   "steps": "วางบล็อกให้ดู 1 ชั้น\nให้น้องวางตามทีละชั้น\nเพิ่มจำนวนชั้นเมื่อน้องทำได้",
+   "tips": "ตัวอย่างกิจกรรม เริ่มจากบล็อกขนาดใหญ่ก่อน",
+   "title": "ต่อบล็อกเป็นหอคอย",
+   "video": ""
+  }
+ },
+ {
+  "path": "hwlib/ex-gm",
+  "data": {
+   "createdAt": "2026-11-20T00:00:00Z",
+   "domain": "GM",
+   "example": true,
+   "freq": "วันละ 5–10 นาที",
+   "icon": "ball",
+   "id": "ex-gm",
+   "steps": "ใช้เทปติดพื้นเป็นเส้นตรงยาว 2 เมตร\nเดินให้น้องดูก่อน\nจูงมือน้องเดินตามเส้น แล้วค่อย ๆ ปล่อยมือ",
+   "tips": "ตัวอย่างกิจกรรม แก้ไขให้เหมาะกับน้องแต่ละคน หรือลบได้",
+   "title": "เดินตามเส้นบนพื้น",
+   "video": ""
+  }
+ },
+ {
+  "path": "hwlib/ex-ps",
+  "data": {
+   "createdAt": "2026-11-20T00:00:00Z",
+   "domain": "PS",
+   "example": true,
+   "freq": "ทุกมื้อ",
+   "icon": "spoon",
+   "id": "ex-ps",
+   "steps": "จับมือน้องตักพร้อมกัน\nค่อย ๆ ลดการช่วยเหลือ\nให้น้องตักเองทั้งมื้อ",
+   "tips": "ตัวอย่างกิจกรรม ยอมให้หกเลอะได้ระหว่างฝึก",
+   "title": "ฝึกใช้ช้อนตักอาหารเอง",
+   "video": ""
+  }
+ },
+ {
+  "path": "hwlib/ex-rl",
+  "data": {
+   "createdAt": "2026-11-20T00:00:00Z",
+   "domain": "RL",
+   "example": true,
+   "freq": "ทุกวัน ตอนอาบน้ำหรือแต่งตัว",
+   "icon": "teddy",
+   "id": "ex-rl",
+   "steps": "บอกชื่ออวัยวะพร้อมชี้ให้ดู เช่น ตา จมูก ปาก\nถามน้องว่า “จมูกอยู่ไหน”\nชมเมื่อน้องชี้ถูก",
+   "tips": "ตัวอย่างกิจกรรม ใช้คำสั้น ๆ ชัด ๆ",
+   "title": "ชี้อวัยวะตามคำบอก",
+   "video": ""
+  }
+ },
+ {
+  "path": "library/ex-autism",
+  "data": {
+   "age": "ทุกช่วงอายุ",
+   "cover": "84efaf4564b6adc5bfe20346043dfd07",
+   "createdAt": "2026-11-20T06:40:00Z",
+   "desc": "ออทิสติกคืออะไร ลักษณะที่อาจพบ สัญญาณเตือนตามช่วงอายุ เมื่อสงสัยควรทำอย่างไร วิธีช่วยลูกที่บ้าน และความเชื่อผิด ๆ (4 หน้า รวมปก)",
+   "domain": "",
+   "file": "e419942bc087f25ef982dc1303df837f",
+   "fileName": "รู้จักภาวะออทิสติก.pdf",
+   "fileType": "application/pdf",
+   "id": "ex-autism",
+   "kind": "knowledge",
+   "link": "",
+   "title": "รู้จักภาวะออทิสติก",
+   "topic": "ออทิสติก",
+   "updatedAt": "2026-11-20T07:40:00Z"
+  }
+ },
+ {
+  "path": "library/k-adhd",
+  "data": {
+   "age": "ทุกช่วงอายุ",
+   "cover": "91218feaa312eab089170bbd253abeff",
+   "createdAt": "2026-11-20T07:10:00Z",
+   "desc": "สมาธิสั้นคืออะไร ลักษณะ 3 ด้าน ต่างจากเด็กซนทั่วไปอย่างไร เมื่อสงสัยควรทำอย่างไร วิธีช่วยลูกที่บ้าน และความเชื่อผิด ๆ (4 หน้า รวมปก)",
+   "domain": "",
+   "file": "015b0fb4e5bdd48494c79d8c94fc33a2",
+   "fileName": "รู้จักภาวะสมาธิสั้น.pdf",
+   "fileType": "application/pdf",
+   "id": "k-adhd",
+   "kind": "knowledge",
+   "link": "",
+   "title": "รู้จักภาวะสมาธิสั้น",
+   "topic": "สมาธิสั้น (ADHD)",
+   "updatedAt": "2026-11-20T07:40:00Z"
+  }
+ },
+ {
+  "path": "library/k-down",
+  "data": {
+   "age": "ทุกช่วงอายุ",
+   "cover": "17646151179bc88a395d7af1ef459efa",
+   "createdAt": "2026-11-20T07:11:00Z",
+   "desc": "ดาวน์ซินโดรมคืออะไร ลักษณะที่อาจพบ สุขภาพที่ควรตรวจติดตาม การช่วยเหลือตั้งแต่เล็ก วิธีช่วยลูกที่บ้าน และความเชื่อผิด ๆ (4 หน้า รวมปก)",
+   "domain": "",
+   "file": "e86c91f67f56fa2f1fb394f98501a6e5",
+   "fileName": "รู้จักดาวน์ซินโดรม.pdf",
+   "fileType": "application/pdf",
+   "id": "k-down",
+   "kind": "knowledge",
+   "link": "",
+   "title": "รู้จักดาวน์ซินโดรม",
+   "topic": "ดาวน์ซินโดรม",
+   "updatedAt": "2026-11-20T07:40:00Z"
+  }
+ },
+ {
+  "path": "library/k-gdd",
+  "data": {
+   "age": "ทุกช่วงอายุ",
+   "cover": "869d0362ea9c36f9df319fcf36b9a805",
+   "createdAt": "2026-11-21T03:01:00Z",
+   "desc": "พัฒนาการล่าช้าคืออะไร พัฒนาการ 5 ด้าน สัญญาณเตือนตามช่วงอายุ ศูนย์ช่วยเหลืออย่างไร วิธีช่วยลูกที่บ้าน และความเชื่อผิด ๆ (4 หน้า รวมปก)",
+   "domain": "",
+   "file": "875d1f4d749d9dea65bceeda54be8a9f",
+   "fileName": "รู้จักภาวะพัฒนาการล่าช้า.pdf",
+   "fileType": "application/pdf",
+   "id": "k-gdd",
+   "kind": "knowledge",
+   "link": "",
+   "title": "รู้จักภาวะพัฒนาการล่าช้า",
+   "topic": "พัฒนาการล่าช้า",
+   "updatedAt": "2026-11-21T03:01:00Z"
+  }
+ },
+ {
+  "path": "library/k-id",
+  "data": {
+   "age": "ทุกช่วงอายุ",
+   "cover": "90125dae9aa26e47fe4085c09314ed4d",
+   "createdAt": "2026-11-20T07:12:00Z",
+   "desc": "บกพร่องทางสติปัญญาคืออะไร ลักษณะที่อาจพบ สาเหตุ เมื่อสงสัยควรทำอย่างไร วิธีช่วยลูกที่บ้าน และความเชื่อผิด ๆ (4 หน้า รวมปก)",
+   "domain": "",
+   "file": "1c347495fc2fe96c24dc9215685a0525",
+   "fileName": "รู้จักภาวะบกพร่องทางสติปัญญา.pdf",
+   "fileType": "application/pdf",
+   "id": "k-id",
+   "kind": "knowledge",
+   "link": "",
+   "title": "รู้จักภาวะบกพร่องทางสติปัญญา",
+   "topic": "บกพร่องทางสติปัญญา",
+   "updatedAt": "2026-11-20T07:40:00Z"
+  }
+ },
+ {
+  "path": "library/k-ld",
+  "data": {
+   "age": "4–6 ปี",
+   "cover": "9d31cdd155c1355883ec3bd4283c8d93",
+   "createdAt": "2026-11-21T03:02:00Z",
+   "desc": "LD คืออะไร ลักษณะด้านการอ่าน เขียน คำนวณ สัญญาณที่ควรสังเกต เมื่อสงสัยควรทำอย่างไร วิธีช่วยลูกที่บ้าน และความเชื่อผิด ๆ (4 หน้า รวมปก)",
+   "domain": "",
+   "file": "1a644802046ba43242810fa9a954065b",
+   "fileName": "รู้จักภาวะการเรียนรู้บกพร่อง.pdf",
+   "fileType": "application/pdf",
+   "id": "k-ld",
+   "kind": "knowledge",
+   "link": "",
+   "title": "รู้จักภาวะการเรียนรู้บกพร่อง (LD)",
+   "topic": "ภาวะการเรียนรู้บกพร่อง (LD)",
+   "updatedAt": "2026-11-21T03:02:00Z"
+  }
+ },
+ {
+  "path": "library/k-speech",
+  "data": {
+   "age": "ทุกช่วงอายุ",
+   "cover": "16e5a8d85aac47c200ca46142fb8e96e",
+   "createdAt": "2026-11-21T03:00:00Z",
+   "desc": "พูดช้าหรือภาษาล่าช้าคืออะไร ลักษณะที่พบ สัญญาณตามช่วงอายุ เมื่อสงสัยควรทำอย่างไร วิธีกระตุ้นการพูดที่บ้าน และความเชื่อผิด ๆ (4 หน้า รวมปก)",
+   "domain": "",
+   "file": "a9ebdf1fd91bbd1d8787d9e1810d3d9c",
+   "fileName": "ลูกพูดช้า ทำอย่างไรดี.pdf",
+   "fileType": "application/pdf",
+   "id": "k-speech",
+   "kind": "knowledge",
+   "link": "",
+   "title": "ลูกพูดช้า ทำอย่างไรดี",
+   "topic": "พูดช้า / ภาษาล่าช้า",
+   "updatedAt": "2026-11-21T03:00:00Z"
+  }
+ },
+ {
+  "path": "library/w-color",
+  "data": {
+   "age": "3–4 ปี",
+   "cover": "b18628cd5bd1cf244b59aaaf6fdfc9f9",
+   "createdAt": "2026-11-21T03:05:00Z",
+   "desc": "ฝึกฟังคำสั่งและรู้จักสี ระบายภาพ 6 ภาพให้ถูกสีตามที่พ่อแม่บอก (1 หน้า)",
+   "domain": "RL",
+   "file": "8344e49f400c86c52aac9acc5fe9560b",
+   "fileName": "ใบงานระบายสีตามคำสั่ง.pdf",
+   "fileType": "application/pdf",
+   "id": "w-color",
+   "kind": "worksheet",
+   "link": "",
+   "title": "ระบายสีตามคำสั่ง",
+   "topic": "",
+   "updatedAt": "2026-11-21T03:05:00Z"
+  }
+ },
+ {
+  "path": "library/w-match",
+  "data": {
+   "age": "2–3 ปี",
+   "cover": "9ab5fed739c7050562488a5e679f7877",
+   "createdAt": "2026-11-21T03:04:00Z",
+   "desc": "ฝึกสังเกตและจับคู่ภาพผลไม้ ของเล่น และสัตว์ที่เหมือนกัน พร้อมเรียกชื่อภาพ (1 หน้า)",
+   "domain": "FM",
+   "file": "a8d1785f392f42856efc04480765d66d",
+   "fileName": "ใบงานจับคู่ภาพ.pdf",
+   "fileType": "application/pdf",
+   "id": "w-match",
+   "kind": "worksheet",
+   "link": "",
+   "title": "จับคู่ภาพที่เหมือนกัน",
+   "topic": "",
+   "updatedAt": "2026-11-21T03:04:00Z"
+  }
+ },
+ {
+  "path": "library/w-trace",
+  "data": {
+   "age": "2–3 ปี",
+   "cover": "9cf140084c6f1687bad1236d88d8dede",
+   "createdAt": "2026-11-21T03:03:00Z",
+   "desc": "ฝึกจับดินสอ ลากเส้นตรง เส้นโค้ง และเส้นซิกแซก จากจุดเริ่มไปหาภาพ (2 หน้า)",
+   "domain": "FM",
+   "file": "a35a2e6e1765e4afa1c36505bc52f12c",
+   "fileName": "ใบงานลากเส้นตามรอย.pdf",
+   "fileType": "application/pdf",
+   "id": "w-trace",
+   "kind": "worksheet",
+   "link": "",
+   "title": "ลากเส้นตามรอย",
+   "topic": "",
+   "updatedAt": "2026-11-21T03:03:00Z"
+  }
+ }
+]
